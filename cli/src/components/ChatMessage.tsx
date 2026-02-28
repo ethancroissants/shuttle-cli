@@ -295,6 +295,16 @@ function truncate(text: string, maxLength: number): string {
 }
 
 /**
+ * Truncate to max lines, adding a "... N more lines" hint
+ */
+function truncateLines(text: string, maxLines = 6): string {
+	const lines = text.split("\n")
+	if (lines.length <= maxLines) return text
+	const shown = lines.slice(0, maxLines).join("\n")
+	return `${shown}\n… ${lines.length - maxLines} more lines (task complete)`
+}
+
+/**
  * Format tool result for display
  */
 function formatToolResult(result: string, maxLines = 5): string[] {
@@ -343,10 +353,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, mode, isStrea
 	}
 	if (say === "text") {
 		if (!text?.trim()) return null
+		// Truncate long completed messages; keep full display while streaming
+		const displayText = isStreaming ? text : truncateLines(text, 10)
 		return (
 			<Box flexDirection="column" marginBottom={1} width="100%">
 				<DotRow>
-					<MarkdownText>{text}</MarkdownText>
+					<MarkdownText>{displayText}</MarkdownText>
 				</DotRow>
 			</Box>
 		)
@@ -652,7 +664,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, mode, isStrea
 				</DotRow>
 				{text && (
 					<Box marginLeft={2}>
-						<MarkdownText color="greenBright">{text}</MarkdownText>
+						<MarkdownText color="greenBright">{truncateLines(text, 6)}</MarkdownText>
 					</Box>
 				)}
 			</Box>
@@ -763,7 +775,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, mode, isStrea
 		return (
 			<Box flexDirection="column" marginBottom={1} width="100%">
 				<DotRow color={toolColor}>
-					<MarkdownText color={toolColor}>{text}</MarkdownText>
+					<MarkdownText color={toolColor}>{truncateLines(text, 8)}</MarkdownText>
 				</DotRow>
 			</Box>
 		)
@@ -776,7 +788,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, mode, isStrea
 			return (
 				<Box flexDirection="column" marginBottom={1} width="100%">
 					<DotRow color="yellow">
-						<MarkdownText color="yellow">{parsed.response}</MarkdownText>
+						<MarkdownText color="yellow">{truncateLines(parsed.response, 8)}</MarkdownText>
 					</DotRow>
 				</Box>
 			)
