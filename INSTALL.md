@@ -1,8 +1,4 @@
-# Installing ShuttleAI CLI from Source
-
-The built output (`cli/dist/`) is **not committed** to this repository — you need to build it locally. This keeps the repo clean and ensures you're always running from your own build.
-
----
+# Installing ShuttleAI CLI
 
 ## Prerequisites
 
@@ -10,84 +6,42 @@ The built output (`cli/dist/`) is **not committed** to this repository — you n
 - **npm** v10 or later (comes with Node.js)
 - **git**
 
-Check your versions:
+---
+
+## Install (one command)
 
 ```bash
-node --version   # should say v20.x.x or higher
-npm --version    # should say 10.x.x or higher
+git clone https://github.com/ethancroissants/shuttle-cli
+cd shuttle-cli
+bash install.sh
 ```
+
+The install script:
+1. Installs root dependencies (`npm install`)
+2. Builds the CLI (~4 seconds)
+3. Links `shuttle` globally so you can run it from anywhere
+
+On first run, Shuttle asks for your **ShuttleAI API key** — no env vars to set. Get one free at [shuttleai.com/keys](https://shuttleai.com/keys).
 
 ---
 
-## 1. Clone the repo
+## Manual steps (if you prefer)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/shuttleai-cli.git
-cd shuttleai-cli
+git clone https://github.com/ethancroissants/shuttle-cli
+cd shuttle-cli
+npm install --legacy-peer-deps
+cd cli && npm install --legacy-peer-deps && npm run build
+npm link    # makes 'shuttle' available globally
 ```
-
----
-
-## 2. Install root dependencies
-
-From the repo root (this is required — the CLI imports code from the parent `src/` directory):
-
-```bash
-npm install
-```
-
-> This may take a minute. It installs the full dependency tree including AI provider SDKs used internally.
-
----
-
-## 3. Generate proto types
-
-Required once before building (generates TypeScript types from `.proto` files):
-
-```bash
-node scripts/build-proto.mjs
-```
-
----
-
-## 4. Build the CLI
-
-```bash
-cd cli
-npm install
-npm run build
-```
-
-This produces `cli/dist/cli.mjs` — the single bundled binary. Build takes ~5 seconds.
-
----
-
-## 5. Run it
-
-```bash
-# From inside the cli/ directory:
-node dist/cli.mjs
-
-# Or from anywhere after linking globally:
-cd cli
-npm link
-shuttle
-```
-
-On first run, Shuttle will ask for your **ShuttleAI API key** — you don't need to set any environment variables. Just paste it in when prompted.
-
-Get a free key at **[shuttleai.com/keys](https://shuttleai.com/keys)**.
 
 ---
 
 ## Updating
 
-Pull the latest changes and rebuild:
-
 ```bash
 git pull
-node scripts/build-proto.mjs   # only if proto files changed
-cd cli && npm run build
+bash install.sh
 ```
 
 ---
@@ -95,9 +49,27 @@ cd cli && npm run build
 ## Uninstall
 
 ```bash
-cd cli
+cd shuttle-cli/cli
 npm unlink
 ```
+
+Config and session data is in `~/.shuttle/data/` — delete that to fully reset.
+
+---
+
+## Why isn't there a prebuilt binary?
+
+`cli/dist/` is in `.gitignore` — build artifacts don't belong in version control. The build takes ~4 seconds, so it's not a big deal.
+
+---
+
+## Troubleshooting
+
+**`Cannot find module '...'`** — Run `npm install` from the repo root before building.
+
+**`node: bad option`** — Node.js is too old. Install v20+ from [nodejs.org](https://nodejs.org).
+
+**Build errors about missing proto files** — The generated proto files are committed, so this shouldn't happen. If it does, run `node scripts/build-proto.mjs` from the root.
 
 Config and session data is stored in `~/.shuttle/data/` — delete that directory to fully reset.
 

@@ -35,8 +35,7 @@ coverage-unit
 .worktrees
 
 ## Generated files ##
-src/generated/
-src/shared/proto/
+# src/generated/ and src/shared/proto/ are committed (needed for build)
 webview-ui/src/services/grpc-client.ts
 *.tsbuildinfo
 

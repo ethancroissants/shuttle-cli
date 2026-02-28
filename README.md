@@ -32,20 +32,15 @@ shuttle "explain this codebase"
 
 ## 📦 Installation
 
-Build from source — the dist isn't committed, so you need to build it once locally. See **[INSTALL.md](./INSTALL.md)** for the full step-by-step guide.
-
-Quick version:
-
 ```bash
-git clone https://github.com/YOUR_USERNAME/shuttleai-cli
-cd shuttleai-cli
-npm install
-node scripts/build-proto.mjs
-cd cli && npm install && npm run build
-node dist/cli.mjs      # or: npm link && shuttle
+git clone https://github.com/ethancroissants/shuttle-cli
+cd shuttle-cli
+bash install.sh
 ```
 
-On first run, you'll be prompted for your ShuttleAI API key. No env vars needed.
+That's it. The script installs dependencies, builds the CLI (~4 seconds), and links `shuttle` globally.
+
+On first run, you'll be prompted for your ShuttleAI API key — no env vars needed. Get one free at **[shuttleai.com/keys](https://shuttleai.com/keys)**.
 
 ---
 
