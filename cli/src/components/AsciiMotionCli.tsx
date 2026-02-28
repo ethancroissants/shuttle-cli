@@ -39,7 +39,7 @@ export const AsciiMotionCli: React.FC<AsciiMotionCliProps> = () => (
 <Box alignItems="center" flexDirection="column" paddingBottom={1} paddingTop={1}>
 {SHUTTLE.map((line, i) => (
 // biome-ignore lint/suspicious/noArrayIndexKey: static array
-<Text color="cyan" key={i}>
+<Text color="magenta" key={i}>
 {line}
 </Text>
 ))}
