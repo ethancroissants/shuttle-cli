@@ -275,6 +275,7 @@ export function getButtonConfig(message: ClineMessage | undefined, isStreaming: 
 interface ActionButtonsProps {
 	config: ButtonConfig
 	mode?: "act" | "plan"
+	selectedIndex?: number // 0 = primary selected, 1 = secondary selected
 }
 
 /**
@@ -294,7 +295,7 @@ export function getVisibleButtons(config: ButtonConfig) {
  * Buttons take full width (one button = full, two buttons = half each)
  * Does not show cancel-only buttons (ThinkingIndicator handles that with esc)
  */
-export const ActionButtons: React.FC<ActionButtonsProps> = ({ config, mode = "act" }) => {
+export const ActionButtons: React.FC<ActionButtonsProps> = ({ config, mode = "act", selectedIndex = 0 }) => {
 	if (!config.enableButtons) {
 		return null
 	}
@@ -314,24 +315,46 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({ config, mode = "ac
 
 	const modeColor = mode === "plan" ? "yellow" : COLORS.primaryBlue
 
-	const renderButton = (text: string, shortcut: string) => {
-		const label = ` ${text} (${shortcut}) `
+	const renderButton = (text: string, isSelected: boolean) => {
+		const label = ` ${text} `
 		const padding = Math.max(0, buttonWidth - label.length)
 		const leftPad = Math.floor(padding / 2)
 		const rightPad = padding - leftPad
 		const paddedLabel = " ".repeat(leftPad) + label + " ".repeat(rightPad)
 
+		if (isSelected) {
+			// Selected: bright white bg with mode color text + pointer indicator
+			return (
+				<Text backgroundColor="white" bold color={modeColor}>
+					{"▶ "}
+					{paddedLabel.trim()}
+					{" ◀"}
+				</Text>
+			)
+		}
 		return (
-			<Text backgroundColor={modeColor} color="black">
+			<Text backgroundColor={modeColor} color="black" dimColor>
 				{paddedLabel}
 			</Text>
 		)
 	}
 
+	const primarySelected = selectedIndex === 0
+	const secondarySelected = selectedIndex === 1
+
 	return (
-		<Box flexDirection="row" gap={1} marginLeft={1} width="100%">
-			{hasPrimary && renderButton(config.primaryText!, "1")}
-			{hasSecondary && renderButton(config.secondaryText!, hasPrimary ? "2" : "1")}
+		<Box flexDirection="column" marginLeft={1} width="100%">
+			<Box flexDirection="row" gap={1} width="100%">
+				{hasPrimary && renderButton(config.primaryText!, primarySelected)}
+				{hasSecondary && renderButton(config.secondaryText!, !hasPrimary ? true : secondarySelected)}
+			</Box>
+			<Box marginTop={0}>
+				<Text color="gray" dimColor>
+					{hasPrimary && hasSecondary
+						? "  ← → to select  •  Enter to confirm  •  type + Enter for feedback"
+						: "  Enter to confirm  •  type + Enter for feedback"}
+				</Text>
+			</Box>
 		</Box>
 	)
 }

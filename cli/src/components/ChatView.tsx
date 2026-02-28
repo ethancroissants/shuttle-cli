@@ -849,6 +849,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
 		return getButtonConfig(lastMsg, isSpinnerActive)
 	}, [messages, isSpinnerActive])
 
+	// Track which button is selected (0 = primary, 1 = secondary) for arrow-key navigation
+	const [selectedButtonIndex, setSelectedButtonIndex] = useState(0)
+	// Reset selection to primary whenever a new button config appears
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on buttonConfig identity change
+	useEffect(() => {
+		setSelectedButtonIndex(0)
+	}, [buttonConfig])
+
 	// Handle button actions (1 for primary, 2 for secondary)
 	const handleButtonAction = useCallback(
 		async (action: ButtonActionType | undefined, _isPrimary: boolean) => {
@@ -1269,31 +1277,54 @@ export const ChatView: React.FC<ChatViewProps> = ({
 			}
 		}
 
-		// 8. Handle button actions (1 for primary, 2 for secondary)
-		// Only when buttons are enabled, not streaming, and no text has been typed
+		// 8. Handle button selection via arrow keys and Enter
+		// Only when buttons are enabled, not streaming
 		if (
 			buttonConfig.enableButtons &&
 			!isSpinnerActive &&
-			textInput === "" &&
 			!isYoloSuppressed(yolo, pendingAsk?.ask as ClineAsk | undefined)
 		) {
 			const { hasPrimary, hasSecondary } = getVisibleButtons(buttonConfig)
+			const hasBoth = hasPrimary && hasSecondary
 
-			if (input === "1") {
-				// "1" triggers primary if shown, otherwise secondary if it's the only button
-				if (hasPrimary && buttonConfig.primaryAction) {
-					handleButtonAction(buttonConfig.primaryAction, true)
+			// Left/right arrows cycle button selection (only when text field is empty)
+			if (textInput === "" && hasBoth) {
+				if (key.leftArrow) {
+					setSelectedButtonIndex(0)
 					return
 				}
-				if (hasSecondary && !hasPrimary && buttonConfig.secondaryAction) {
-					handleButtonAction(buttonConfig.secondaryAction, false)
+				if (key.rightArrow) {
+					setSelectedButtonIndex(1)
 					return
 				}
 			}
-			if (input === "2" && hasPrimary && hasSecondary && buttonConfig.secondaryAction) {
-				// "2" only works when both buttons are shown
-				handleButtonAction(buttonConfig.secondaryAction, false)
-				return
+
+			// Enter (with no text) activates the currently selected button
+			if (key.return && textInput === "") {
+				const isPrimary = !hasBoth || selectedButtonIndex === 0
+				const action = isPrimary ? buttonConfig.primaryAction : buttonConfig.secondaryAction
+				if (action) {
+					handleButtonAction(action, isPrimary)
+					return
+				}
+			}
+
+			// Legacy 1/2 shortcuts still work
+			if (textInput === "") {
+				if (input === "1") {
+					if (hasPrimary && buttonConfig.primaryAction) {
+						handleButtonAction(buttonConfig.primaryAction, true)
+						return
+					}
+					if (hasSecondary && !hasPrimary && buttonConfig.secondaryAction) {
+						handleButtonAction(buttonConfig.secondaryAction, false)
+						return
+					}
+				}
+				if (input === "2" && hasBoth && buttonConfig.secondaryAction) {
+					handleButtonAction(buttonConfig.secondaryAction, false)
+					return
+				}
 			}
 		}
 
@@ -1506,7 +1537,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 				{buttonConfig.enableButtons &&
 					!isSpinnerActive &&
 					!isYoloSuppressed(yolo, pendingAsk?.ask as ClineAsk | undefined) && (
-						<ActionButtons config={buttonConfig} mode={mode} />
+						<ActionButtons config={buttonConfig} mode={mode} selectedIndex={selectedButtonIndex} />
 					)}
 
 				{/* Thinking indicator when processing */}
