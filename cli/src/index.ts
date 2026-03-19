@@ -864,15 +864,18 @@ async function showWelcome(options: { verbose?: boolean; cwd?: string; config?: 
 	const ctx = await initializeCli({ ...options, enableAuth: true })
 
 	// If SHUTTLEAI_API_KEY env var is set, auto-configure the provider on first run
+	// Also support SHUTTLEAI_BASE_URL for custom endpoints
 	if (process.env.SHUTTLEAI_API_KEY) {
 		const stateManager = (await import("@/core/storage/StateManager")).StateManager.get()
 		const alreadySet = stateManager.getGlobalStateKey("welcomeViewCompleted")
 		if (!alreadySet) {
+			const customUrl = process.env.SHUTTLEAI_BASE_URL || "https://api.shuttleai.com/v1"
+			const isShuttleAI = customUrl.includes("shuttleai.com")
 			await applyProviderConfig({
 				providerId: "openai",
 				apiKey: process.env.SHUTTLEAI_API_KEY,
-				baseUrl: "https://api.shuttleai.com/v1",
-				modelId: "shuttleai/auto",
+				baseUrl: customUrl,
+				modelId: isShuttleAI ? "shuttleai/auto" : undefined,
 				controller: ctx.controller,
 			})
 			stateManager.setGlobalState("welcomeViewCompleted", true)

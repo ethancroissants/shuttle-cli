@@ -28,11 +28,13 @@ export async function isAuthConfigured(): Promise<boolean> {
 }
 
 /**
- * Check if ShuttleAI credentials are stored (openai provider pointing to shuttleai).
+ * Check if ShuttleAI or custom OpenAI-compatible API credentials are stored.
+ * Accepts any endpoint with an API key, not just ShuttleAI's.
  */
 export async function checkShuttleAIConfigured(): Promise<boolean> {
 	const config = StateManager.get().getApiConfiguration() as Record<string, unknown>
-	return !!(config["openAiApiKey"] && config["openAiBaseUrl"] === SHUTTLEAI_BASE_URL)
+	// Valid if we have an API key and a base URL (either ShuttleAI or custom)
+	return !!(config["openAiApiKey"] && config["openAiBaseUrl"])
 }
 
 // Keep old name as alias for any remaining callsites

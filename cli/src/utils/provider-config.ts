@@ -33,9 +33,9 @@ export async function applyProviderConfig(options: ApplyProviderConfigOptions): 
 		planModeApiProvider: providerId,
 	}
 
-	// Add model ID — when pointing at ShuttleAI use shuttleai/auto as the smart default
-	const finalModelId =
-		modelId || (baseUrl === "https://api.shuttleai.com/v1" ? "shuttleai/auto" : getDefaultModelId(providerId))
+	// Add model ID — use shuttleai/auto for ShuttleAI, otherwise use provider default
+	const isShuttleAI = baseUrl?.includes("shuttleai.com")
+	const finalModelId = modelId || (isShuttleAI ? "shuttleai/auto" : getDefaultModelId(providerId))
 	if (finalModelId) {
 		const actModelKey = getProviderModelIdKey(providerId as ApiProvider, "act")
 		const planModelKey = getProviderModelIdKey(providerId as ApiProvider, "plan")

@@ -1,5 +1,5 @@
 /**
- * Utility to fetch and cache ShuttleAI models for the CLI
+ * Utility to fetch and cache models for OpenAI-compatible APIs (ShuttleAI or custom)
  */
 
 import { StateManager } from "@/core/storage/StateManager"
@@ -14,34 +14,39 @@ interface ShuttleAIModel {
 	owned_by?: string
 }
 
-// In-memory cache
-let cachedModels: string[] | null = null
-let fetchPromise: Promise<string[]> | null = null
+// In-memory cache - keyed by endpoint URL
+const cachedModels: Map<string, string[]> = new Map()
+const fetchPromises: Map<string, Promise<string[]>> = new Map()
 
 /**
- * Fetch ShuttleAI models from the API using the stored API key.
+ * Fetch models from an OpenAI-compatible API endpoint using the stored API key.
  * Returns cached results if available, or fetches from API.
+ * Supports both ShuttleAI and custom endpoints.
  */
 export async function fetchShuttleAIModels(): Promise<string[]> {
-	// Return cached models if available
-	if (cachedModels) {
-		return cachedModels
+	const config = StateManager.get().getApiConfiguration() as Record<string, string>
+	const apiKey = config["openAiApiKey"] || process.env.SHUTTLEAI_API_KEY || ""
+	const baseUrl = config["openAiBaseUrl"] || SHUTTLE_BASE_URL
+
+	// Check cache first
+	const cached = cachedModels.get(baseUrl)
+	if (cached) {
+		return cached
 	}
 
-	// If already fetching, wait for that promise
-	if (fetchPromise) {
-		return fetchPromise
+	// If already fetching for this endpoint, wait for that promise
+	const existingPromise = fetchPromises.get(baseUrl)
+	if (existingPromise) {
+		return existingPromise
 	}
 
-	fetchPromise = (async () => {
+	const fetchPromise = (async () => {
 		try {
-			const config = StateManager.get().getApiConfiguration() as Record<string, string>
-			const apiKey = config["openAiApiKey"] || process.env.SHUTTLEAI_API_KEY || ""
 			if (!apiKey) {
 				return []
 			}
 
-			const response = await fetch(`${SHUTTLE_BASE_URL}/models`, {
+			const response = await fetch(`${baseUrl}/models`, {
 				headers: { Authorization: `Bearer ${apiKey}` },
 			})
 			if (!response.ok) {
@@ -51,17 +56,29 @@ export async function fetchShuttleAIModels(): Promise<string[]> {
 			const data = (await response.json()) as { data?: ShuttleAIModel[] }
 			if (data?.data) {
 				const models = data.data.map((m) => m.id).sort((a, b) => a.localeCompare(b))
-				cachedModels = models
+				cachedModels.set(baseUrl, models)
 				return models
 			}
 			return []
 		} catch (error) {
-			Logger.debug("Failed to fetch ShuttleAI models:", error)
+			Logger.debug(`Failed to fetch models from ${baseUrl}:`, error)
 			return []
 		} finally {
-			fetchPromise = null
+			fetchPromises.delete(baseUrl)
 		}
 	})()
 
+	fetchPromises.set(baseUrl, fetchPromise)
 	return fetchPromise
+}
+
+/**
+ * Clear the model cache (useful when switching endpoints)
+ */
+export function clearModelCache(endpoint?: string): void {
+	if (endpoint) {
+		cachedModels.delete(endpoint)
+	} else {
+		cachedModels.clear()
+	}
 }
