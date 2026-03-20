@@ -41,6 +41,39 @@ export function withRetry(options: RetryOptions = {}) {
 					const isRateLimit = error?.status === 429 || error instanceof RetriableError
 					const isLastAttempt = attempt === maxRetries - 1
 
+					// Log detailed error information before retry/fail
+					Logger.error(`API Error (attempt ${attempt + 1}/${maxRetries}):`, {
+						status: error?.status,
+						statusText: error?.statusText,
+						code: error?.code,
+						type: error?.type,
+						message: error?.message,
+						name: error?.name,
+						provider: (this as any)?.options?.openAiBaseUrl || (this as any)?.options?.apiProvider || 'unknown',
+						isRateLimit,
+						isLastAttempt,
+					})
+					
+					// Log response body if available
+					if (error?.response) {
+						Logger.error('API Error Response:', {
+							status: error.response.status,
+							statusText: error.response.statusText,
+							headers: error.response.headers,
+							data: error.response.data,
+						})
+					}
+					
+					// Log error details from OpenAI SDK format
+					if (error?.error) {
+						Logger.error('API Error Details:', error.error)
+					}
+
+					// Log stack trace for non-rate-limit errors
+					if (!isRateLimit && error?.stack) {
+						Logger.error('Error Stack Trace:', error.stack)
+					}
+
 					if ((!isRateLimit && !retryAllErrors) || isLastAttempt) {
 						throw error
 					}
