@@ -117,8 +117,13 @@ export const fetch: typeof globalThis.fetch = (() => {
 	// to "true" or "false" (as strings) in the JetBrains/CLI build.
 	// We must use explicit string comparison because "false" is truthy in JS.
 	if (process.env.IS_STANDALONE === "true") {
-		// Configure undici with ProxyAgent
-		const agent = new EnvHttpProxyAgent({})
+		// Configure undici with ProxyAgent and longer timeouts for large streaming responses
+		const agent = new EnvHttpProxyAgent({
+			// Increase connection timeout to 5 minutes (default is 10s)
+			// This prevents premature termination of long-running streaming responses
+			bodyTimeout: 5 * 60 * 1000, // 5 minutes
+			headersTimeout: 60 * 1000, // 60 seconds for headers
+		})
 		setGlobalDispatcher(agent)
 		baseFetch = undiciFetch as any as typeof globalThis.fetch
 	}
@@ -192,5 +197,9 @@ export function createOpenAIClient(options: OpenAIClientOptions): OpenAI {
 			...options.defaultHeaders,
 		},
 		fetch, // Use configured fetch with proxy support
+		// Increase timeout to 20 minutes for large streaming responses
+		// Default is 10 minutes which can be too short for large file generation
+		timeout: options.timeout ?? 20 * 60 * 1000, // 20 minutes
+		maxRetries: options.maxRetries ?? 3, // Explicit retry count
 	})
 }
