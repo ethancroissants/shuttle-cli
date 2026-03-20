@@ -39,7 +39,7 @@ import { readStdinIfPiped } from "./utils/piped"
 import { runPlainTextTask } from "./utils/plain-text-task"
 import { applyProviderConfig } from "./utils/provider-config"
 import { getValidCliProviders, isValidCliProvider } from "./utils/providers"
-import { autoUpdateOnStartup, checkForUpdates } from "./utils/update"
+import { autoUpdateOnStartup, checkForUpdates, runGithubUpdate } from "./utils/update"
 import { initializeCliContext } from "./vscode-context"
 import { CLI_LOG_FILE, shutdownEvent, window } from "./vscode-shim"
 
@@ -780,9 +780,8 @@ program
 
 program
 	.command("update")
-	.description("Check for updates and install if available")
-	.option("-v, --verbose", "Show verbose output")
-	.action(() => checkForUpdates(CLI_VERSION))
+	.description("Pull the latest version from GitHub and rebuild in-place")
+	.action(() => runGithubUpdate())
 
 // Dev command with subcommands
 const devCommand = program.command("dev").description("Developer tools and utilities")

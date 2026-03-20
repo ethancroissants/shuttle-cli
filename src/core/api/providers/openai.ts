@@ -4,7 +4,6 @@ import { normalizeOpenaiReasoningEffort } from "@shared/storage/types"
 import OpenAI, { AzureOpenAI } from "openai"
 import type { ChatCompletionReasoningEffort, ChatCompletionTool } from "openai/resources/chat/completions"
 import { buildExternalBasicHeaders } from "@/services/EnvUtils"
-import { Logger } from "@/shared/services/Logger"
 import { ClineStorageMessage } from "@/shared/messages/content"
 import { createOpenAIClient, fetch } from "@/shared/net"
 import { ApiHandler, CommonApiHandlerOptions } from "../index"
@@ -134,65 +133,49 @@ export class OpenAiHandler implements ApiHandler {
 			reasoningEffort = requestedEffort === "none" ? undefined : (requestedEffort as ChatCompletionReasoningEffort)
 		}
 
-		const stream = await client.chat.completions.create({
+		const response = await client.chat.completions.create({
 			model: modelId,
 			messages: openAiMessages,
 			temperature,
 			max_tokens: maxTokens,
 			reasoning_effort: reasoningEffort,
-			stream: true,
-			stream_options: { include_usage: true },
+			stream: false,
 			...getOpenAIToolParams(tools),
 		})
 
 		const toolCallProcessor = new ToolCallProcessor()
 
-		try {
-			for await (const chunk of stream) {
-				const delta = chunk.choices?.[0]?.delta
-				if (delta?.content) {
-					yield {
-						type: "text",
-						text: delta.content,
-					}
-				}
+		const message = response.choices?.[0]?.message
 
-				if (delta && "reasoning_content" in delta && delta.reasoning_content) {
-					yield {
-						type: "reasoning",
-						reasoning: (delta.reasoning_content as string | undefined) || "",
-					}
-				}
-
-				if (delta?.tool_calls) {
-					yield* toolCallProcessor.processToolCallDeltas(delta.tool_calls)
-				}
-
-				if (chunk.usage) {
-					yield {
-						type: "usage",
-						inputTokens: chunk.usage.prompt_tokens || 0,
-						outputTokens: chunk.usage.completion_tokens || 0,
-						cacheReadTokens: chunk.usage.prompt_tokens_details?.cached_tokens || 0,
-						// @ts-expect-error-next-line
-						cacheWriteTokens: chunk.usage.prompt_cache_miss_tokens || 0,
-					}
-				}
+		if (message?.content) {
+			yield {
+				type: "text",
+				text: message.content,
 			}
-		} catch (streamError: any) {
-			const errorInfo = {
-				modelId,
-				baseUrl: this.options.openAiBaseUrl,
-				error: streamError?.message,
-				status: streamError?.status,
-				code: streamError?.code,
-				type: streamError?.type,
+		}
+
+		if (message && "reasoning_content" in message && message.reasoning_content) {
+			yield {
+				type: "reasoning",
+				reasoning: (message.reasoning_content as string | undefined) || "",
 			}
-			console.error('\n━━━ OPENAI STREAM ERROR ━━━')
-			console.error(JSON.stringify(errorInfo, null, 2))
-			console.error('━━━ END STREAM ERROR ━━━\n')
-			Logger.error('OpenAI stream error:', errorInfo)
-			throw streamError
+		}
+
+		if (message?.tool_calls) {
+			for (const toolCall of message.tool_calls) {
+				yield* toolCallProcessor.processToolCallDeltas([{ index: 0, ...toolCall }])
+			}
+		}
+
+		if (response.usage) {
+			yield {
+				type: "usage",
+				inputTokens: response.usage.prompt_tokens || 0,
+				outputTokens: response.usage.completion_tokens || 0,
+				cacheReadTokens: response.usage.prompt_tokens_details?.cached_tokens || 0,
+				// @ts-expect-error-next-line
+				cacheWriteTokens: response.usage.prompt_cache_miss_tokens || 0,
+			}
 		}
 	}
 

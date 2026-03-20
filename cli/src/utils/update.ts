@@ -1,9 +1,13 @@
-import { spawn } from "node:child_process"
-import { realpathSync } from "node:fs"
+import { spawn, spawnSync } from "node:child_process"
+import { cpSync, mkdirSync, realpathSync, rmSync } from "node:fs"
+import os from "node:os"
+import path from "node:path"
 import { exit } from "node:process"
 import { ClineEndpoint } from "@/config"
 import { fetch } from "@/shared/net"
 import { printInfo, printWarning } from "./display"
+
+const GITHUB_REPO = "https://github.com/ethancroissants/shuttle-cli"
 
 export enum PackageManager {
 	NPM = "npm",
@@ -240,6 +244,84 @@ export async function checkForUpdates(currentVersion: string, options?: { verbos
 		const message = error instanceof Error ? error.message : String(error)
 		printWarning(`Error checking for updates: ${message}`)
 		exit(1)
+	}
+}
+
+/**
+ * Update the CLI by cloning the latest source from GitHub, building it,
+ * and replacing the current installation in-place.
+ */
+export async function runGithubUpdate(): Promise<void> {
+	// Find the package root: process.argv[1] is dist/cli.mjs, so go up 2 levels
+	let installDir: string
+	try {
+		const binaryPath = realpathSync(process.argv[1])
+		installDir = path.dirname(path.dirname(binaryPath))
+	} catch {
+		printWarning("Could not determine install location. Make sure you are running a globally installed shuttle binary.")
+		exit(1)
+	}
+
+	const tmpDir = path.join(os.tmpdir(), `shuttle-update-${Date.now()}`)
+
+	try {
+		// Step 1: Clone the repo
+		printInfo(`Downloading latest version from ${GITHUB_REPO}...`)
+		mkdirSync(tmpDir, { recursive: true })
+
+		const cloneResult = spawnSync("git", ["clone", "--depth", "1", GITHUB_REPO, tmpDir], {
+			stdio: "inherit",
+			shell: false,
+		})
+		if (cloneResult.status !== 0) {
+			printWarning("Failed to clone repository. Make sure git is installed and you have internet access.")
+			exit(1)
+		}
+
+		// Step 2: Install root workspace dependencies
+		printInfo("Installing dependencies...")
+		const installResult = spawnSync("npm", ["install"], {
+			cwd: tmpDir,
+			stdio: "inherit",
+			shell: process.platform === "win32",
+		})
+		if (installResult.status !== 0) {
+			printWarning("Failed to install dependencies.")
+			exit(1)
+		}
+
+		// Step 3: Build the CLI package
+		printInfo("Building...")
+		const buildResult = spawnSync("npm", ["run", "build"], {
+			cwd: path.join(tmpDir, "cli"),
+			stdio: "inherit",
+			shell: process.platform === "win32",
+		})
+		if (buildResult.status !== 0) {
+			printWarning("Build failed.")
+			exit(1)
+		}
+
+		// Step 4: Replace dist/ in the current install location
+		printInfo("Installing update...")
+		const newDist = path.join(tmpDir, "cli", "dist")
+		const currentDist = path.join(installDir, "dist")
+
+		rmSync(currentDist, { recursive: true, force: true })
+		cpSync(newDist, currentDist, { recursive: true })
+
+		printInfo("Update complete! Restart shuttle to use the new version.")
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		printWarning(`Update failed: ${message}`)
+		exit(1)
+	} finally {
+		// Clean up temp dir
+		try {
+			rmSync(tmpDir, { recursive: true, force: true })
+		} catch {
+			// best effort
+		}
 	}
 }
 

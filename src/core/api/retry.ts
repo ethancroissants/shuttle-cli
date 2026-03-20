@@ -14,6 +14,22 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 	retryAllErrors: false,
 }
 
+function isNetworkError(error: any): boolean {
+	const message = error?.message?.toLowerCase() ?? ""
+	const code = error?.code ?? ""
+	return (
+		error instanceof TypeError &&
+		(message === "terminated" ||
+			message.includes("fetch failed") ||
+			message.includes("network") ||
+			message.includes("connection") ||
+			message.includes("socket") ||
+			message.includes("econnreset") ||
+			message.includes("etimedout") ||
+			message.includes("econnrefused"))
+	) || ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "ENOTFOUND"].includes(code)
+}
+
 export class RetriableError extends Error {
 	status: number = 429
 	retryAfter?: number
@@ -39,6 +55,7 @@ export function withRetry(options: RetryOptions = {}) {
 					return
 				} catch (error: any) {
 					const isRateLimit = error?.status === 429 || error instanceof RetriableError
+					const isRetriable = isRateLimit || isNetworkError(error)
 					const isLastAttempt = attempt === maxRetries - 1
 
 					// Log detailed error information before retry/fail (both Logger and console for visibility)
@@ -86,7 +103,7 @@ export function withRetry(options: RetryOptions = {}) {
 					
 					console.error(`━━━ END API ERROR ━━━\n`)
 
-					if ((!isRateLimit && !retryAllErrors) || isLastAttempt) {
+					if ((!isRetriable && !retryAllErrors) || isLastAttempt) {
 						throw error
 					}
 
