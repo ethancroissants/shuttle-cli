@@ -431,6 +431,29 @@ export class Task {
 			...apiConfiguration,
 			ulid: this.ulid,
 			onRetryAttempt: async (attempt: number, maxRetries: number, delay: number, error: any) => {
+				// Log full error details to console
+				Logger.error(`[Task ${this.taskId}] API Error (attempt ${attempt}/${maxRetries}):`, {
+					status: error?.status,
+					code: error?.code,
+					type: error?.type,
+					message: error?.message,
+					provider: error?.provider,
+				})
+				
+				// Build detailed error message for UI
+				let errorSnippet = ""
+				if (error?.status) {
+					errorSnippet = `[${error.status}] `
+				}
+				if (error?.code || error?.type) {
+					errorSnippet += `${error.code || error.type}: `
+				}
+				if (error?.message) {
+					errorSnippet += String(error.message).substring(0, 200)
+				} else {
+					errorSnippet += "Unknown error"
+				}
+				
 				const clineMessages = this.messageStateHandler.getClineMessages()
 				const lastApiReqStartedIndex = findLastIndex(clineMessages, (m) => m.say === "api_req_started")
 				if (lastApiReqStartedIndex !== -1) {
@@ -440,7 +463,7 @@ export class Task {
 							attempt: attempt, // attempt is already 1-indexed from retry.ts
 							maxAttempts: maxRetries, // total attempts
 							delaySec: Math.round(delay / 1000),
-							errorSnippet: error?.message ? `${String(error.message).substring(0, 50)}...` : undefined,
+							errorSnippet: errorSnippet,
 						}
 						// Clear previous cancelReason and streamingFailedMessage if we are retrying
 						delete currentApiReqInfo.cancelReason

@@ -50,7 +50,8 @@ export class Logger {
 	static #output(level: string, message: string, error: Error | undefined, args: any[]) {
 		try {
 			let fullMessage = message
-			if (Logger.isVerbose && args.length > 0) {
+			// Always show args for ERROR level, only in verbose mode for others
+			if ((level === "ERROR" || Logger.isVerbose) && args.length > 0) {
 				fullMessage += ` ${args.map((arg) => JSON.stringify(arg)).join(" ")}`
 			}
 			const errorSuffix = error?.message ? ` ${error.message}` : ""
