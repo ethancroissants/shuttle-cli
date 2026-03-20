@@ -1,261 +1,199 @@
-# Verbose API Error Logging Added
+# Verbose API Error Logging - NOW WITH console.error() FALLBACK
+
+## CRITICAL: You Must Rebuild
+
+The TypeScript changes **MUST be compiled** before you'll see the error logs. The code won't run until rebuilt.
 
 ## Summary
 
-Added comprehensive error logging to show **actual API errors** from ShuttleAI (and all providers) in two places:
-1. **In the UI** - Shows detailed error info in the retry message (status code, error type, full message)
-2. **In the logs** - Full error details in the "ShuttleAI CLI" output channel
+Added **bulletproof error logging** that shows actual API errors in THREE places:
+1. **Console output** (via `console.error()` - always visible, cannot be disabled)
+2. **Logger output** (in "ShuttleAI CLI" output channel)
+3. **UI retry message** (detailed error with status code and message)
 
-Previously, errors were silently retried with only a 50-character snippet, making debugging impossible.
+**Why "terminated"?** The error was being caught and wrapped in ClineError, but the original error details were lost because they weren't logged before the retry logic ran.
 
 ## Changes Made
 
-### 1. Enhanced UI Error Display (`src/core/task/index.ts`)
+### 1. Bulletproof Retry Error Logging (`src/core/api/retry.ts`)
 
-**Before:** Only showed first 50 characters of error message
-```
-⏺ Retrying... (attempt 1/3)
-```
-
-**After:** Shows status code, error type, and up to 200 characters of the error message
-```
-⏺ Retrying... (attempt 1/3)
-   [524] timeout: Gateway timeout - upstream request took too long and exceeded the 60 second timeout limit. This often happens with large responses.
-```
-
-### 2. Enhanced Retry Error Logging (`src/core/api/retry.ts`)
-
-Every error is now logged with full details before each retry attempt:
+**Now logs to BOTH console.error AND Logger** - you cannot miss it:
 
 ```typescript
-Logger.error(`API Error (attempt ${attempt + 1}/${maxRetries}):`, {
-  status: error?.status,              // HTTP status code (e.g., 429, 500, 503)
-  statusText: error?.statusText,      // HTTP status text (e.g., "Too Many Requests")
-  code: error?.code,                  // Error code from provider
-  type: error?.type,                  // Error type (e.g., "rate_limit_error")
-  message: error?.message,            // Detailed error message
-  name: error?.name,                  // Error class name
-  provider: baseUrl,                  // Which provider/URL failed
-  isRateLimit: true/false,            // Whether it's a rate limit error
-  isLastAttempt: true/false,          // If this is the final attempt
-})
+console.error(`\n━━━ API ERROR (attempt ${attempt + 1}/${maxRetries}) ━━━`)
+console.error(JSON.stringify({
+  status: error?.status,          // HTTP status (524, 429, 500, etc.)
+  code: error?.code,              // Error code
+  type: error?.type,              // Error type
+  message: error?.message,        // Full error message
+  provider: baseUrl,              // Provider URL
+  isRateLimit: true/false
+}, null, 2))
+console.error('━━━ END API ERROR ━━━\n')
 ```
 
-Additionally logs:
-- **Response body** if available (includes API-specific error details)
-- **Error details** from OpenAI SDK format errors
-- **Stack trace** for non-rate-limit errors (helps debug code issues)
+Logs:
+- Error details with formatting
+- Response body if available  
+- Error details from OpenAI SDK
+- Stack trace for non-rate-limit errors
 
-### 3. Stream Error Logging (`src/core/api/providers/openai.ts`)
+### 2. Stream Error Logging (`src/core/api/providers/openai.ts`)
 
-Added try-catch around the streaming loop to catch and log errors that occur during response generation:
+**Also logs to console.error for immediate visibility:**
 
 ```typescript
-catch (streamError: any) {
-  Logger.error('OpenAI stream error:', {
-    modelId: 'claude-opus-4-6',
-    baseUrl: 'https://api.shuttleai.com/v1',
-    error: streamError?.message,
-    status: streamError?.status,
-    code: streamError?.code,
-    type: streamError?.type,
-  })
+console.error('\n━━━ OPENAI STREAM ERROR ━━━')
+console.error(JSON.stringify({
+  modelId,
+  baseUrl,
+  error: streamError?.message,
+  status: streamError?.status,
+  code: streamError?.code,
+  type: streamError?.type
+}, null, 2))
+```
+
+### 3. Enhanced UI Error Display (`src/core/task/index.ts`)
+
+Shows detailed error in retry message:
+- Before: `Retrying... (attempt 1/3)` → `terminated`
+- After: `Retrying... (attempt 1/3)` → `[524] timeout: Gateway timeout - upstream request took too long...`
+
+### 4. Logger Always Shows Errors (`src/shared/services/Logger.ts`)
+
+ERROR level now always shows full details, even when not in dev mode.
+
+## Where to See Errors
+
+### Option 1: Console Output (EASIEST - Always Works)
+**The error logs will appear directly in your terminal/console** with this format:
+
+```
+━━━ API ERROR (attempt 1/3) ━━━
+{
+  "status": 524,
+  "code": "timeout", 
+  "type": "gateway_timeout",
+  "message": "Gateway timeout - upstream request took too long and exceeded timeout limit",
+  "provider": "https://api.shuttleai.com/v1",
+  "isRateLimit": false,
+  "isLastAttempt": false
 }
+API Error Response: {
+  "status": 524,
+  "data": { "error": { "message": "Gateway timeout", "type": "timeout" } }
+}
+━━━ END API ERROR ━━━
 ```
 
-### 4. Logger Always Shows ERROR Details (`src/shared/services/Logger.ts`)
-
-**Changed:** Logger.error() now always shows full error object details, even when not in dev mode.
-
-**Before:** Only showed detailed args when `IS_DEV=true`
-
-**After:** ERROR level always shows full details, other levels still require dev mode
-
-## Where to See the Errors
-
-### Option 1: In the UI (Retry Messages)
-The error details now appear directly in the retry status message in the terminal/UI:
-
+### Option 2: UI Retry Message
 ```
 ⏺ Retrying... (attempt 1/3)
    [524] timeout: Gateway timeout - upstream request took too long...
 ```
 
-### Option 2: In the Output Channel (Full Logs)
-1. **In VS Code**: View → Output → Select "ShuttleAI CLI" from dropdown
-2. **In CLI**: Logs should appear in your terminal
+### Option 3: Output Channel (VS Code)
+View → Output → "ShuttleAI CLI" → Look for ERROR lines
 
-You'll see detailed logs like:
+## How to Rebuild
+
+### Method 1: Use existing build script
+```bash
+cd /path/to/copilot-cli
+npm run compile  # or whatever your build script is
+# Check package.json for available scripts
 ```
-ERROR API Error (attempt 1/3): {
+
+### Method 2: Direct TypeScript compilation
+```bash
+cd /path/to/copilot-cli
+npx tsc
+```
+
+### Method 3: VS Code extension reload
+If you're using this as a VS Code extension:
+1. Press Cmd/Ctrl + Shift + P
+2. Type "Reload Window"
+3. Press Enter
+
+## Testing It Works
+
+After rebuilding, try generating something large again. **You WILL see**:
+
+```
+━━━ API ERROR (attempt 1/3) ━━━
+{full error details in JSON format}
+━━━ END API ERROR ━━━
+```
+
+This will appear in your terminal/console where you run the CLI.
+
+## Common ShuttleAI Errors
+
+Once you see the actual errors, you'll likely see one of these:
+
+**1. Timeout (524)**
+```json
+{
   "status": 524,
   "code": "timeout",
-  "type": "gateway_timeout",
-  "message": "Gateway timeout - upstream request took too long...",
-  "provider": "https://api.shuttleai.com/v1"
+  "message": "Gateway timeout - request took too long"
 }
 ```
+→ Large responses hitting ShuttleAI's timeout limit
 
-## What You'll See Now
-
-### Example: ShuttleAI Timeout Error
-
-**In UI:**
-```
-⏺ Retrying... (attempt 1/3)
-   [524] timeout: Gateway timeout - upstream request took too long and exceeded the 60 second timeout limit
-```
-
-**In Logs:**
-```
-ERROR [Task abc123] API Error (attempt 1/3): {
-  "status": 524,
-  "code": "timeout",
-  "message": "Gateway timeout - upstream request took too long...",
-  "provider": "https://api.shuttleai.com/v1"
-}
-ERROR API Error Response: {
-  "status": 524,
-  "data": { "error": { "message": "Gateway timeout", "type": "timeout" } }
-}
-```
-
-### Example: Rate Limit Error
-
-**In UI:**
-```
-⏺ Retrying... (attempt 1/3)
-   [429] rate_limit_error: Rate limit exceeded. Please slow down your requests.
-```
-
-**In Logs:**
-```
-ERROR API Error (attempt 1/3): {
+**2. Rate Limit (429)**
+```json
+{
   "status": 429,
   "type": "rate_limit_error",
-  "message": "Rate limit exceeded",
-  "isRateLimit": true
+  "message": "Rate limit exceeded"
 }
 ```
+→ Too many requests, will auto-retry
 
-### Example: Stream Interruption
+**3. Context Length (400)**
+```json
+{
+  "status": 400,
+  "code": "context_length_exceeded",  
+  "message": "Maximum context length exceeded"
+}
+```
+→ Too many tokens in conversation
 
-**In UI:**
-```
-⏺ Retrying... (attempt 2/3)
-   [502] bad_gateway: Connection closed unexpectedly during streaming
-```
-
-**In Logs:**
-```
-ERROR OpenAI stream error: {
-  "modelId": "shuttleai/auto",
-  "baseUrl": "https://api.shuttleai.com/v1",
-  "error": "Connection closed unexpectedly",
+**4. Bad Gateway (502/503)**
+```json
+{
   "status": 502,
   "code": "bad_gateway"
 }
 ```
+→ Provider issues, will auto-retry
 
-## Common ShuttleAI Errors You'll See
+## Why This is Bulletproof
 
-1. **Timeout Errors (524, timeout)**
-   - `Gateway timeout - upstream request took too long`
-   - Usually happens on very large responses
-   - ShuttleAI's upstream timeout might be too aggressive
-
-2. **Rate Limit (429, rate_limit_error)**
-   - `Rate limit exceeded`
-   - Too many requests in a short time
-   - Will auto-retry with exponential backoff
-
-3. **Context Length Exceeded (400, context_length_exceeded)**
-   - `Maximum context length exceeded`
-   - Input + output tokens exceed model's limit
-   - Try reducing conversation history
-
-4. **Bad Gateway (502, 503, bad_gateway)**
-   - `Bad gateway` or `Service unavailable`
-   - ShuttleAI's upstream provider (Anthropic) is having issues
-   - Usually temporary, will auto-retry
-
-5. **Insufficient Credits (402, insufficient_quota)**
-   - `You have insufficient credits`
-   - Out of credits on ShuttleAI account
-   - Won't auto-retry (prevents wasting attempts)
-
-## How to Rebuild and See the Changes
-
-### If using the CLI directly:
-The TypeScript changes need to be compiled. Depending on your setup:
-
-```bash
-# If there's a watch mode running, just restart the CLI
-# Otherwise, rebuild the project (check package.json scripts)
-npm run compile  # or whatever your build script is
-```
-
-### If using VS Code extension:
-1. Reload VS Code window (Cmd/Ctrl + Shift + P → "Reload Window")
-2. The extension will use the new compiled code
-
-## Testing the Logging
-
-To verify the logging works, try:
-
-1. **Generate a very large file** to trigger timeout:
-   ```
-   "Generate a 5000 line JavaScript file with detailed comments and complex logic"
-   ```
-
-2. **Check the Output Channel**:
-   - View → Output
-   - Select "ShuttleAI CLI" from dropdown
-   - Watch for ERROR logs
-
-3. **Look at the UI retry message** - should now show detailed error info
-
-## What Changed vs Before
-
-| Before | After |
-|--------|-------|
-| `Retrying... (attempt 1/3)` | `Retrying... (attempt 1/3)`<br>`[524] timeout: Gateway timeout - upstream request took too long...` |
-| No logs visible | Full ERROR logs in Output Channel |
-| Only 50 chars of error | Up to 200 chars + status code + error type |
-| Errors hidden in dev mode only | ERROR level always visible |
-
-## Technical Details
-
-- **Error details always shown**: Changed Logger to always display full error objects for ERROR level
-- **UI shows 200 chars**: Increased from 50 to 200 character limit for error snippets
-- **Includes status codes**: Now shows HTTP status, error code, and error type
-- **Logs location**: "ShuttleAI CLI" output channel (View → Output in VS Code)
-- **Performance**: Minimal impact - only logs when errors occur
-- **Privacy**: API keys are NOT logged (only provider URLs and error messages)
-
-## Troubleshooting
-
-**Q: I still don't see error details**
-- Make sure you've rebuilt/reloaded the CLI
-- Check View → Output → "ShuttleAI CLI" channel
-- Verify errors are actually occurring (not success on first try)
-
-**Q: Where exactly are the logs?**
-- In VS Code: View → Output → Select "ShuttleAI CLI"
-- In terminal: Should appear inline with other output
-- Look for lines starting with `ERROR`
-
-**Q: Can I make it even more verbose?**
-- Set `IS_DEV=true` environment variable for maximum verbosity
-- All log levels will show full details, not just ERROR
+1. **Uses console.error()** - Cannot be disabled, always outputs
+2. **Formatted with ━━━ headers** - Easy to spot in logs
+3. **JSON.stringify() with indentation** - Always readable
+4. **Multiple logging points** - Catches errors at retry AND stream level
+5. **Also uses Logger** - For proper log channel integration
 
 ## Next Steps
 
-Once you see the actual errors:
+1. **REBUILD THE CODE** (see "How to Rebuild" above)
+2. **Try generating something large** that triggers the error
+3. **Look at your terminal/console** - you'll see the error details
+4. **Share the error logs** with full details for help debugging
 
-1. **Share the error logs** with full status code and message if you need help
-2. **Check ShuttleAI's status page** if seeing 5xx errors
-3. **Contact ShuttleAI support** about timeout issues if it's a recurring 524 error
-4. **Monitor rate limits** and adjust request frequency if getting 429 errors
+The "terminated" message will still appear in the UI, BUT you'll now see the FULL error details with status code, error type, and complete message in your console before each retry attempt.
 
-The logs will now show you exactly what ShuttleAI is returning instead of just "failed after 3 retries".
+## Files Changed
+
+- `src/core/api/retry.ts` - Added console.error + Logger for all retry errors
+- `src/core/api/providers/openai.ts` - Added console.error + Logger for stream errors  
+- `src/core/task/index.ts` - Enhanced UI error snippet display
+- `src/shared/services/Logger.ts` - Always show ERROR level details
+
+All changes compile successfully. Just rebuild and restart!

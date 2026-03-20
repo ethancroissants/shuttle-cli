@@ -180,14 +180,18 @@ export class OpenAiHandler implements ApiHandler {
 				}
 			}
 		} catch (streamError: any) {
-			Logger.error('OpenAI stream error:', {
+			const errorInfo = {
 				modelId,
 				baseUrl: this.options.openAiBaseUrl,
 				error: streamError?.message,
 				status: streamError?.status,
 				code: streamError?.code,
 				type: streamError?.type,
-			})
+			}
+			console.error('\n━━━ OPENAI STREAM ERROR ━━━')
+			console.error(JSON.stringify(errorInfo, null, 2))
+			console.error('━━━ END STREAM ERROR ━━━\n')
+			Logger.error('OpenAI stream error:', errorInfo)
 			throw streamError
 		}
 	}

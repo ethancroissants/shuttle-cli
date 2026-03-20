@@ -41,8 +41,8 @@ export function withRetry(options: RetryOptions = {}) {
 					const isRateLimit = error?.status === 429 || error instanceof RetriableError
 					const isLastAttempt = attempt === maxRetries - 1
 
-					// Log detailed error information before retry/fail
-					Logger.error(`API Error (attempt ${attempt + 1}/${maxRetries}):`, {
+					// Log detailed error information before retry/fail (both Logger and console for visibility)
+					const errorDetails = {
 						status: error?.status,
 						statusText: error?.statusText,
 						code: error?.code,
@@ -52,27 +52,39 @@ export function withRetry(options: RetryOptions = {}) {
 						provider: (this as any)?.options?.openAiBaseUrl || (this as any)?.options?.apiProvider || 'unknown',
 						isRateLimit,
 						isLastAttempt,
-					})
+					}
+					
+					// Always log to console.error for immediate visibility
+					console.error(`\n━━━ API ERROR (attempt ${attempt + 1}/${maxRetries}) ━━━`)
+					console.error(JSON.stringify(errorDetails, null, 2))
+					
+					Logger.error(`API Error (attempt ${attempt + 1}/${maxRetries}):`, errorDetails)
 					
 					// Log response body if available
 					if (error?.response) {
-						Logger.error('API Error Response:', {
+						const responseDetails = {
 							status: error.response.status,
 							statusText: error.response.statusText,
 							headers: error.response.headers,
 							data: error.response.data,
-						})
+						}
+						console.error('API Error Response:', JSON.stringify(responseDetails, null, 2))
+						Logger.error('API Error Response:', responseDetails)
 					}
 					
 					// Log error details from OpenAI SDK format
 					if (error?.error) {
+						console.error('API Error Details:', JSON.stringify(error.error, null, 2))
 						Logger.error('API Error Details:', error.error)
 					}
 
 					// Log stack trace for non-rate-limit errors
 					if (!isRateLimit && error?.stack) {
+						console.error('Error Stack:', error.stack)
 						Logger.error('Error Stack Trace:', error.stack)
 					}
+					
+					console.error(`━━━ END API ERROR ━━━\n`)
 
 					if ((!isRateLimit && !retryAllErrors) || isLastAttempt) {
 						throw error
