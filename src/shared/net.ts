@@ -120,7 +120,7 @@ export const fetch: typeof globalThis.fetch = (() => {
 		// Configure undici with ProxyAgent and longer timeouts for large streaming responses
 		const agent = new EnvHttpProxyAgent({
 			bodyTimeout: 60 * 60 * 1000, // 1 hour — must match or exceed OpenAI client timeout
-			headersTimeout: 60 * 1000, // 60 seconds for headers
+			headersTimeout: 5 * 60 * 1000, // 5 minutes for headers (ShuttleAI can be slow to respond)
 		})
 		setGlobalDispatcher(agent)
 		baseFetch = undiciFetch as any as typeof globalThis.fetch

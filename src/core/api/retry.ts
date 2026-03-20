@@ -30,6 +30,17 @@ function isNetworkError(error: any): boolean {
 	) || ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "ENOTFOUND"].includes(code)
 }
 
+function isTimeoutError(error: any): boolean {
+	const name = error?.name ?? ""
+	const message = error?.message ?? ""
+	return (
+		name === "APIConnectionTimeoutError" ||
+		name === "ConnectTimeoutError" ||
+		/timed?\s*out/i.test(message) ||
+		/timed?\s*out/i.test(String(error?.cause ?? ""))
+	)
+}
+
 export class RetriableError extends Error {
 	status: number = 429
 	retryAfter?: number
@@ -55,7 +66,7 @@ export function withRetry(options: RetryOptions = {}) {
 					return
 				} catch (error: any) {
 					const isRateLimit = error?.status === 429 || error instanceof RetriableError
-					const isRetriable = isRateLimit || isNetworkError(error)
+					const isRetriable = isRateLimit || isNetworkError(error) || isTimeoutError(error)
 					const isLastAttempt = attempt === maxRetries - 1
 
 					// Log detailed error information before retry/fail (both Logger and console for visibility)
