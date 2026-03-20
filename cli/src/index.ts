@@ -906,6 +906,9 @@ async function showWelcome(options: { verbose?: boolean; cwd?: string; config?: 
 		}),
 		async () => {
 			await disposeCliContext(ctx)
+			if (consumePendingGithubUpdate()) {
+				await runGithubUpdate()
+			}
 			exit(hadError ? 1 : 0)
 		},
 	)

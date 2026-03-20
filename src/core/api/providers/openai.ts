@@ -141,6 +141,8 @@ export class OpenAiHandler implements ApiHandler {
 			reasoning_effort: reasoningEffort,
 			stream: false,
 			...getOpenAIToolParams(tools),
+		}, {
+			timeout: 60 * 60 * 1000, // 1 hour
 		})
 
 		const toolCallProcessor = new ToolCallProcessor()

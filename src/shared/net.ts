@@ -119,7 +119,7 @@ export const fetch: typeof globalThis.fetch = (() => {
 	if (process.env.IS_STANDALONE === "true") {
 		// Configure undici with ProxyAgent and longer timeouts for large streaming responses
 		const agent = new EnvHttpProxyAgent({
-			bodyTimeout: 20 * 60 * 1000, // 20 minutes — must match OpenAI client timeout
+			bodyTimeout: 60 * 60 * 1000, // 1 hour — must match or exceed OpenAI client timeout
 			headersTimeout: 60 * 1000, // 60 seconds for headers
 		})
 		setGlobalDispatcher(agent)
