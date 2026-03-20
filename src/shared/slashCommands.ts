@@ -92,6 +92,12 @@ export const CLI_ONLY_COMMANDS: SlashCommand[] = [
 		cliCompatible: true,
 	},
 	{
+		name: "update",
+		description: "Pull the latest version from GitHub and rebuild",
+		section: "default",
+		cliCompatible: true,
+	},
+	{
 		name: "skills",
 		description: "View and manage installed skills",
 		section: "default",

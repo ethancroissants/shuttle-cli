@@ -39,7 +39,7 @@ import { readStdinIfPiped } from "./utils/piped"
 import { runPlainTextTask } from "./utils/plain-text-task"
 import { applyProviderConfig } from "./utils/provider-config"
 import { getValidCliProviders, isValidCliProvider } from "./utils/providers"
-import { autoUpdateOnStartup, checkForUpdates, runGithubUpdate } from "./utils/update"
+import { autoUpdateOnStartup, checkForUpdates, consumePendingGithubUpdate, runGithubUpdate } from "./utils/update"
 import { initializeCliContext } from "./vscode-context"
 import { CLI_LOG_FILE, shutdownEvent, window } from "./vscode-shim"
 
@@ -289,6 +289,9 @@ function createInkCleanup(ctx: CliContext, onTaskError?: () => boolean): () => P
 		if (onTaskError?.()) {
 			printWarning("Task ended with errors.")
 			exit(1)
+		}
+		if (consumePendingGithubUpdate()) {
+			await runGithubUpdate()
 		}
 		exit(0)
 	}

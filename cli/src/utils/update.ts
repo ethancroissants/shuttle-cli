@@ -9,6 +9,18 @@ import { printInfo, printWarning } from "./display"
 
 const GITHUB_REPO = "https://github.com/ethancroissants/shuttle-cli"
 
+let _pendingGithubUpdate = false
+
+export function setPendingGithubUpdate(): void {
+	_pendingGithubUpdate = true
+}
+
+export function consumePendingGithubUpdate(): boolean {
+	const v = _pendingGithubUpdate
+	_pendingGithubUpdate = false
+	return v
+}
+
 export enum PackageManager {
 	NPM = "npm",
 	PNPM = "pnpm",

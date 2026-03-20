@@ -109,6 +109,7 @@ import { getApiMetrics, getLastApiReqTotalTokens } from "@shared/getApiMetrics"
 import { EmptyRequest, StringRequest } from "@shared/proto/cline/common"
 import type { SlashCommandInfo } from "@shared/proto/cline/slash"
 import { CLI_ONLY_COMMANDS } from "@shared/slashCommands"
+import { setPendingGithubUpdate } from "../utils/update"
 import { getProviderDefaultModelId, getProviderModelIdKey } from "@shared/storage"
 import type { Mode } from "@shared/storage/types"
 import { execSync } from "child_process"
@@ -1172,6 +1173,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
 						setCursorPos(0)
 						setSelectedSlashIndex(0)
 						setSlashMenuDismissed(true)
+						return
+					}
+					if (cmd.name === "update") {
+						setPendingGithubUpdate()
+						handleExit()
 						return
 					}
 					if (cmd.name === "clear") {
