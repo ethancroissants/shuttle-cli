@@ -2416,6 +2416,8 @@ export class Task {
 					this.messageStateHandler.getClineMessages(),
 					this.api,
 					previousApiReqIndex,
+					undefined,
+					this.stateManager.getGlobalSettingsKey("customContextLimit"),
 				)
 
 				// Edge case: summarize_task tool call completes but user cancels next request before it finishes.

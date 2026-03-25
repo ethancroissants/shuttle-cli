@@ -18,8 +18,19 @@ if [ "$NODE_VER" -lt 20 ]; then
   error "Node.js v20+ required (found v$NODE_VER). Install from https://nodejs.org"
 fi
 
+# Install into the parent directory of the repo so shuttle-cli doesn't get
+# committed into the workspace repo itself.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$REPO_ROOT"
+INSTALL_DIR="$(dirname "$REPO_ROOT")/shuttle-cli-install"
+
+info "Installing shuttle-cli to $INSTALL_DIR (outside repo)..."
+mkdir -p "$INSTALL_DIR"
+
+# Copy source into install dir (exclude .git and node_modules to keep it clean)
+rsync -a --exclude='.git' --exclude='node_modules' --exclude='cli/node_modules' \
+  "$REPO_ROOT/" "$INSTALL_DIR/"
+
+cd "$INSTALL_DIR"
 
 info "Installing root dependencies..."
 npm install --legacy-peer-deps --silent
@@ -37,4 +48,3 @@ echo ""
 echo "  On first run, Shuttle will ask for your ShuttleAI API key."
 echo "  Get a free key at: https://shuttleai.com/keys"
 echo ""
-

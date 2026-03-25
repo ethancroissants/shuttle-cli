@@ -152,6 +152,7 @@ export class ContextManager {
 		api: ApiHandler,
 		previousApiReqIndex: number,
 		thresholdPercentage?: number,
+		customContextLimit?: number,
 	): boolean {
 		if (previousApiReqIndex >= 0) {
 			const previousRequestText = clineMessages[previousApiReqIndex]?.text
@@ -161,10 +162,12 @@ export class ContextManager {
 					const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
 
 					const { contextWindow, maxAllowedSize } = getContextWindowInfo(api)
+					// Use custom context limit if set and lower than model's max allowed size
+					const effectiveMax = customContextLimit && customContextLimit < maxAllowedSize ? customContextLimit : maxAllowedSize
 					const roundedThreshold = thresholdPercentage
 						? Math.floor(contextWindow * thresholdPercentage)
-						: maxAllowedSize
-					const thresholdTokens = Math.min(roundedThreshold, maxAllowedSize)
+						: effectiveMax
+					const thresholdTokens = Math.min(roundedThreshold, effectiveMax)
 					return totalTokens >= thresholdTokens
 				} catch {
 					return false
