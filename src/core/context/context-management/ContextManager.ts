@@ -232,6 +232,7 @@ export class ContextManager {
 		previousApiReqIndex: number,
 		taskDirectory: string,
 		useAutoCondense: boolean, // option to use new auto-condense or old programmatic context management
+		customContextLimit?: number, // optional custom token limit before compacting (defaults to model's context window)
 	) {
 		let updatedConversationHistoryDeletedRange = false
 
@@ -244,12 +245,14 @@ export class ContextManager {
 					const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequestText)
 					const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
 					const { maxAllowedSize } = getContextWindowInfo(api)
+					// Use custom context limit if set and it's lower than model's max, otherwise use model's max
+					const effectiveLimit = customContextLimit && customContextLimit < maxAllowedSize ? customContextLimit : maxAllowedSize
 
 					// This is the most reliable way to know when we're close to hitting the context window.
-					if (totalTokens >= maxAllowedSize) {
+					if (totalTokens >= effectiveLimit) {
 						// Since the user may switch between models with different context windows, truncating half may not be enough (ie if switching from claude 200k to deepseek 64k, half truncation will only remove 100k tokens, but we need to remove much more)
-						// So if totalTokens/2 is greater than maxAllowedSize, we truncate 3/4 instead of 1/2
-						const keep = totalTokens / 2 > maxAllowedSize ? "quarter" : "half"
+						// So if totalTokens/2 is greater than effectiveLimit, we truncate 3/4 instead of 1/2
+						const keep = totalTokens / 2 > effectiveLimit ? "quarter" : "half"
 
 						// Attempt file read optimization and check if we need to truncate
 						let { anyContextUpdates, needToTruncate } = this.attemptFileReadOptimizationCore(

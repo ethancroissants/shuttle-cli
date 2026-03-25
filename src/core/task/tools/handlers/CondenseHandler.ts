@@ -59,7 +59,13 @@ export class CondenseHandler implements IToolHandler, IPartialBlockHandler {
 			const apiConversationHistory = config.messageState.getApiConversationHistory()
 			const lastMessage = apiConversationHistory[apiConversationHistory.length - 1]
 			const summaryAlreadyAppended = lastMessage && lastMessage.role === "assistant"
-			const keepStrategy = summaryAlreadyAppended ? "lastTwo" : "none"
+			
+			// Check if conservative compact mode is enabled
+			const conservativeCompact = config.services.stateManager.getGlobalSettingsKey("conservativeCompact")
+			
+			// Conservative mode: only keep first pair (more aggressive compacting)
+			// Normal mode: keep first pair + last two messages if summary already appended
+			const keepStrategy = conservativeCompact ? "none" : (summaryAlreadyAppended ? "lastTwo" : "none")
 
 			// clear the context history at this point in time
 			config.taskState.conversationHistoryDeletedRange = config.services.contextManager.getNextTruncationRange(

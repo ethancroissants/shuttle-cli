@@ -13,6 +13,7 @@ interface StatusBarProps {
 	tokensOut?: number
 	totalCost?: number
 	contextWindowSize?: number
+	customContextLimit?: number
 	cwd?: string
 }
 
@@ -49,12 +50,20 @@ function formatNumber(num: number): string {
 
 /**
  * Create a progress bar for context window usage
+ * Returns bar with color based on usage percentage
  */
-function createContextBar(used: number, total: number, width: number = 8): string {
+function createContextBar(used: number, total: number, width: number = 8): { bar: string; color: string } {
 	const ratio = Math.min(used / total, 1)
 	const filled = Math.round(ratio * width)
 	const empty = width - filled
-	return "█".repeat(filled) + "░".repeat(empty)
+	const bar = "█".repeat(filled) + "░".repeat(empty)
+	
+	// Color based on usage: green < 70%, yellow < 90%, red >= 90%
+	let color = "green"
+	if (ratio >= 0.9) color = "red"
+	else if (ratio >= 0.7) color = "yellow"
+	
+	return { bar, color }
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -63,6 +72,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 	tokensOut = 0,
 	totalCost = 0,
 	contextWindowSize = 200000, // Default Claude context window
+	customContextLimit,
 	cwd,
 }) => {
 	const [branch, setBranch] = useState<string | null>(null)
@@ -73,7 +83,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 	}, [cwd])
 
 	const totalTokens = tokensIn + tokensOut
-	const contextBar = createContextBar(totalTokens, contextWindowSize)
+	
+	// Use custom limit if set and lower than model's max, otherwise use model's max
+	const effectiveLimit = customContextLimit && customContextLimit < contextWindowSize ? customContextLimit : contextWindowSize
+	const { bar: contextBar, color: barColor } = createContextBar(totalTokens, effectiveLimit)
+	
+	// Show warning if approaching limit (>= 90%)
+	const isNearLimit = totalTokens >= effectiveLimit * 0.9
 
 	// Format model ID for display (shorten if needed)
 	const displayModel = modelId.length > 20 ? modelId.substring(0, 17) + "..." : modelId
@@ -95,8 +111,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
 				{/* Model and context bar */}
 				<Text color="white">{displayModel}</Text>
-				<Text color="blue">{contextBar}</Text>
-				<Text color="gray">({formatNumber(totalTokens)})</Text>
+				<Text color={barColor}>{contextBar}</Text>
+				<Text color={isNearLimit ? "yellow" : "gray"}>
+					({formatNumber(totalTokens)}/{formatNumber(effectiveLimit)})
+					{customContextLimit && customContextLimit < contextWindowSize && <Text color="cyan"> [custom]</Text>}
+				</Text>
 				<Text color="gray">|</Text>
 
 				{/* Cost */}

@@ -182,6 +182,16 @@ export async function updateSettings(controller: Controller, request: UpdateSett
 			controller.stateManager.setGlobalState("useAutoCondense", request.useAutoCondense)
 		}
 
+		// Update custom context limit
+		if (request.customContextLimit !== undefined) {
+			controller.stateManager.setGlobalState("customContextLimit", request.customContextLimit || undefined)
+		}
+
+		// Update conservative compact setting
+		if (request.conservativeCompact !== undefined) {
+			controller.stateManager.setGlobalState("conservativeCompact", request.conservativeCompact)
+		}
+
 		// Update focus chain settings
 		if (request.focusChainSettings !== undefined) {
 			{

@@ -25,6 +25,12 @@ export const BASE_SLASH_COMMANDS: SlashCommand[] = [
 		cliCompatible: true,
 	},
 	{
+		name: "compact",
+		description: "Condenses your current context window (alias for /smol)",
+		section: "default",
+		cliCompatible: true,
+	},
+	{
 		name: "newrule",
 		description: "Create a new Cline rule based on your conversation",
 		section: "default",

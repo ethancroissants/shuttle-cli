@@ -1482,6 +1482,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
 		return DEFAULT_CONTEXT_WINDOW
 	}, [provider, modelId])
 
+	// Get custom context limit from settings
+	const customContextLimit = useMemo(() => {
+		return StateManager.get().getGlobalSettingsKey("customContextLimit")
+	}, [])
+
 	const showSlashMenu = slashInfo.inSlashMode && !slashMenuDismissed
 	const showFileMenu = mentionInfo.inMentionMode && !showSlashMenu
 
@@ -1665,15 +1670,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
 						<Box paddingLeft={1} paddingRight={1}>
 							<Text>
 								{modelId} {(() => {
-									const bar = createContextBar(lastApiReqTotalTokens, contextWindowSize)
+									const effectiveLimit = customContextLimit && customContextLimit < contextWindowSize ? customContextLimit : contextWindowSize
+									const bar = createContextBar(lastApiReqTotalTokens, effectiveLimit)
+									const barColor = lastApiReqTotalTokens >= effectiveLimit * 0.9 ? "red" : lastApiReqTotalTokens >= effectiveLimit * 0.7 ? "yellow" : "green"
 									return (
 										<Text>
-											<Text>{bar.filled}</Text>
+											<Text color={barColor}>{bar.filled}</Text>
 											<Text color="gray">{bar.empty}</Text>
 										</Text>
 									)
-								})()} <Text color="gray">
-									({lastApiReqTotalTokens.toLocaleString()}) | ${metrics.totalCost.toFixed(3)}
+								})()} <Text color={lastApiReqTotalTokens >= (customContextLimit && customContextLimit < contextWindowSize ? customContextLimit : contextWindowSize) * 0.9 ? "yellow" : "gray"}>
+									({lastApiReqTotalTokens.toLocaleString()}/{((customContextLimit && customContextLimit < contextWindowSize ? customContextLimit : contextWindowSize)).toLocaleString()})
+									{customContextLimit && customContextLimit < contextWindowSize && <Text color="cyan"> [custom]</Text>}
+								</Text> <Text color="gray">
+									| ${metrics.totalCost.toFixed(3)}
 								</Text>
 							</Text>
 						</Box>

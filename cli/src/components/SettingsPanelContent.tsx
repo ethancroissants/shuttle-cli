@@ -151,6 +151,13 @@ const [preferredLanguage, setPreferredLanguage] = useState<string>(
 const [telemetry, setTelemetry] = useState<TelemetrySetting>(
 () => stateManager.getGlobalSettingsKey("telemetrySetting") || "unset",
 )
+const [customContextLimit, setCustomContextLimit] = useState<string>(() => {
+const limit = stateManager.getGlobalSettingsKey("customContextLimit")
+return limit ? String(limit) : ""
+})
+const [conservativeCompact, setConservativeCompact] = useState<boolean>(
+() => stateManager.getGlobalSettingsKey("conservativeCompact") ?? false,
+)
 
 // Refresh trigger to force re-reading model IDs from state
 const [modelRefreshKey, setModelRefreshKey] = useState(0)
@@ -323,6 +330,20 @@ case "other":
 return [
 { key: "language", label: "Preferred language", type: "editable", value: preferredLanguage },
 {
+key: "customContextLimit",
+label: "Custom context limit (tokens)",
+type: "editable",
+value: customContextLimit || "Auto",
+description: "Set a custom token limit before compacting (e.g., 10000). Leave empty for model default.",
+},
+{
+key: "conservativeCompact",
+label: "Conservative compacting",
+type: "checkbox",
+value: conservativeCompact,
+description: "Keep less history when compacting (more aggressive)",
+},
+{
 key: "telemetry",
 label: "Error/usage reporting",
 type: "checkbox",
@@ -346,6 +367,8 @@ autoApproveSettings,
 features,
 preferredLanguage,
 telemetry,
+customContextLimit,
+conservativeCompact,
 ])
 
 // Reset selection when changing tabs
@@ -441,6 +464,12 @@ controller?.updateTelemetrySetting(newTelemetry)
 return
 }
 
+if (item.key === "conservativeCompact") {
+setConservativeCompact(newValue)
+stateManager.setGlobalState("conservativeCompact", newValue)
+return
+}
+
 if (item.key === "enableNotifications") {
 const newSettings = {
 ...autoApproveSettings,
@@ -467,7 +496,7 @@ const newSettings = { ...autoApproveSettings, version: (autoApproveSettings.vers
 setAutoApproveSettings(newSettings)
 stateManager.setGlobalState("autoApprovalSettings", newSettings)
 }
-}, [items, selectedIndex, stateManager, autoApproveSettings, toggleFeature, separateModels, rebuildTaskApi, controller])
+}, [items, selectedIndex, stateManager, autoApproveSettings, toggleFeature, separateModels, rebuildTaskApi, controller, conservativeCompact])
 
 // Handle model selection from the ShuttleAI model picker
 const handleModelSelect = useCallback(
@@ -535,10 +564,25 @@ refreshModelIds()
 } else if (item.key === "language") {
 setPreferredLanguage(editValue)
 stateManager.setGlobalState("preferredLanguage", editValue)
+} else if (item.key === "customContextLimit") {
+const trimmed = editValue.trim()
+if (trimmed === "" || trimmed.toLowerCase() === "auto") {
+setCustomContextLimit("")
+stateManager.setGlobalState("customContextLimit", undefined)
+} else {
+const numValue = Number.parseInt(trimmed, 10)
+if (!Number.isNaN(numValue) && numValue >= 1000) {
+setCustomContextLimit(String(numValue))
+stateManager.setGlobalState("customContextLimit", numValue)
+} else {
+// Invalid value, revert to previous
+setCustomContextLimit(customContextLimit)
+}
+}
 }
 
 setIsEditing(false)
-}, [items, selectedIndex, editValue, separateModels, stateManager, refreshModelIds, rebuildTaskApi])
+}, [items, selectedIndex, editValue, separateModels, stateManager, refreshModelIds, rebuildTaskApi, customContextLimit])
 
 // Navigate to next/prev item, skipping non-interactive items
 const navigateItems = useCallback(

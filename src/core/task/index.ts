@@ -1905,6 +1905,7 @@ export class Task {
 			previousApiReqIndex,
 			await ensureTaskDirectoryExists(this.taskId),
 			this.stateManager.getGlobalSettingsKey("useAutoCondense") && isNextGenModelFamily(this.api.getModel().id),
+			this.stateManager.getGlobalSettingsKey("customContextLimit"),
 		)
 
 		if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
